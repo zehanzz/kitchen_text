@@ -9,13 +9,31 @@ from tqdm import tqdm
 from dataset import MultiModalTextGenDataset
 from model import MultiModalTextGenLSTM
 
+from torchviz import make_dot
+# def prepare_sensor_data_dict(sensor_data, num_features_perSensor):
+#     return {
+#         # 'eye': sensor_data[:, :, :num_features_perSensor['eye']],
+#         # 'emg': sensor_data[:, :, num_features_perSensor['eye']:num_features_perSensor['eye'] + num_features_perSensor['emg']],
+#         # 'tactile': sensor_data[:, :, num_features_perSensor['eye'] + num_features_perSensor['emg']:num_features_perSensor['eye'] + num_features_perSensor['emg'] + num_features_perSensor['tactile']],
+#         # 'body': sensor_data[:, :, num_features_perSensor['eye'] + num_features_perSensor['emg'] + num_features_perSensor['tactile']:]
+#         'emg': sensor_data[:, :, :num_features_perSensor['emg']],
+#         'tactile': sensor_data[:, :,
+#                    num_features_perSensor['emg']:num_features_perSensor['emg'] + num_features_perSensor['tactile']],
+#         'body': sensor_data[:, :, num_features_perSensor['emg'] + num_features_perSensor['tactile']:]
+#     }
 def prepare_sensor_data_dict(sensor_data, num_features_perSensor):
-    return {
-        'eye': sensor_data[:, :, :num_features_perSensor['eye']],
-        'emg': sensor_data[:, :, num_features_perSensor['eye']:num_features_perSensor['eye'] + num_features_perSensor['emg']],
-        'tactile': sensor_data[:, :, num_features_perSensor['eye'] + num_features_perSensor['emg']:num_features_perSensor['eye'] + num_features_perSensor['emg'] + num_features_perSensor['tactile']],
-        'body': sensor_data[:, :, num_features_perSensor['eye'] + num_features_perSensor['emg'] + num_features_perSensor['tactile']:]
+    indices = {
+        sensor: sum(num_features_perSensor[s] for s in sorted(num_features_perSensor) if s < sensor)
+        for sensor in num_features_perSensor
     }
+    # print(indices)  # Print the indices to verify
+    sensor_dict = {
+        sensor: sensor_data[:, :, indices[sensor]:indices[sensor] + num_features_perSensor[sensor]]
+        for sensor in num_features_perSensor
+    }
+    # for sensor, data in sensor_dict.items():
+    #     print(f"Sensor: {sensor}, Shape: {data.shape}")  # Print the shape of each sensor data array to verify
+    return sensor_dict
 class EarlyStopping:
     def __init__(self, patience=3, min_delta=0.0001, path='best_model.pt'):
         self.patience = patience
@@ -84,15 +102,15 @@ train_dataloader = dataset.train_dataloader
 val_dataloader = dataset.val_dataloader
 test_dataloader = dataset.test_dataloader
 
-# Hyperparameters
+# Hyperparameters,
 num_features_perSensor = {'eye': 2, 'emg': 16, 'tactile': 32, 'body': 66}
+# num_features_perSensor = {'body': 66}
 nhead = 2
 num_layers = 2
 vocab_size = dataset.vocab_size
 hidden_size = 128
 learning_rate = 0.001
 num_epochs = 50
-
 model = MultiModalTextGenLSTM(num_features_perSensor, nhead, num_layers, vocab_size, hidden_size)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
